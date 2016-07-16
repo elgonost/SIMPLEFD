@@ -1,0 +1,33 @@
+{
+    "author": "kostaspetsasx@gmail.com",
+    "dependencies": {},
+    "keywords": [],
+    "name": "simple-fd",
+    "pebble": {
+        "capabilities": [
+            "location",
+            "configurable"
+        ],
+        "displayName": "Simple FD",
+        "enableMultiJS": true,
+        "messageKeys": {
+            "message": 1,
+            "status": 0
+        },
+        "projectType": "native",
+        "resources": {
+            "media": []
+        },
+        "sdkVersion": "3",
+        "targetPlatforms": [
+            "aplite",
+            "basalt",
+            "chalk"
+        ],
+        "uuid": "5b107de6-71f9-4ded-92cf-c9057fe1cbaa",
+        "watchapp": {
+            "watchface": false
+        }
+    },
+    "version": "1.0.0"
+}
