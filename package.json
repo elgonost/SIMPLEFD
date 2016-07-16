@@ -11,6 +11,7 @@
         "displayName": "Simple FD",
         "enableMultiJS": true,
         "messageKeys": {
+            "fallKey": 2,
             "message": 1,
             "status": 0
         },

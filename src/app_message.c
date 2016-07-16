@@ -10,7 +10,7 @@ static TextLayer *s_time_layer;
 static TextLayer *fall_layer;
 
 AppTimer *appTimer;
-
+DictionaryIterator *iter;
 int simpleSum[NUM_SAMPLES];
 int meanSimpleSum = 0;
 int maxSimpleSum = -1;
@@ -29,7 +29,8 @@ int dummy = 10;
 // These should correspond to the values you defined in appinfo.json/Settings
 enum {
 	STATUS_KEY = 0,	
-	MESSAGE_KEY = 1
+	MESSAGE_KEY = 1,
+  FALL_KEY = 2
 };
 
 // Write message to buffer & send
@@ -40,6 +41,13 @@ static void send_message(void){
 	dict_write_cstring(iter, MESSAGE_KEY, "I'm a Pebble!");
 	
 	dict_write_end(iter);
+  app_message_outbox_send();
+}
+
+void sendEmail(){
+  app_message_outbox_begin(&iter);
+  dict_write_int(iter,FALL_KEY,&dummy,sizeof(int),true);
+  dict_write_end(iter);
   app_message_outbox_send();
 }
 
@@ -78,19 +86,25 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
   APP_LOG(APP_LOG_LEVEL_DEBUG,"AppTimer was Canceled");
 }
 
+static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
+  APP_LOG(APP_LOG_LEVEL_DEBUG,"Down key pressed");
+  vibes_short_pulse();
+  sendEmail();
+}
+
 static void click_config_provider(void *context) {
   // Subcribe to button click events here
-  ButtonId id = BUTTON_ID_SELECT;  // The Select button
-  window_single_click_subscribe(id, select_click_handler);
+  ButtonId id_select = BUTTON_ID_SELECT;  // The Select button
+  ButtonId id_down = BUTTON_ID_DOWN;
+  window_single_click_subscribe(id_select, select_click_handler);
+  window_single_click_subscribe(id_down, down_click_handler);
 }
 
 void appTimerCallback(void *data){
   APP_LOG(APP_LOG_LEVEL_DEBUG, "AppTimer not cancelled. Sending email.");
   vibes_short_pulse();
   text_layer_set_text(fall_layer, " ");
-
-  //send email
-  
+  sendEmail();
 }
 
 static void data_handler(AccelData *data, uint32_t num_samples) {
@@ -149,14 +163,14 @@ static void data_handler(AccelData *data, uint32_t num_samples) {
   highPeak = false;
   //stage 1
   if(maxSimpleSum>=6000){
-    //APP_LOG(APP_LOG_LEVEL_DEBUG, "High peak noticed ");
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "High peak noticed ");
     highPeak = true;
   }
   else{
     highPeak = false;
   }
   
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "counter is %d",counter);
+  //APP_LOG(APP_LOG_LEVEL_DEBUG, "counter is %d",counter);
   counter++;
   
   if(counter==60){
