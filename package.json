@@ -13,7 +13,10 @@
         "messageKeys": {
             "fallKey": 2,
             "message": 1,
-            "status": 0
+            "status": 0,
+            "timeKey0": 3,
+            "timeKey1": 4,
+            "typeKey": 5
         },
         "projectType": "native",
         "resources": {

@@ -1,9 +1,13 @@
 var emailReq = new XMLHttpRequest();
+var activityReq = new XMLHttpRequest();
+var sendData = {};
 var username = localStorage.getItem("username");
 var email = localStorage.getItem("email");
 var lat = 0.0;
 var long = 0.0;
 var location = "";
+
+console.log('Hello from phone');
 
 function geolocationSuccess(position){
   lat = position.coords.latitude;
@@ -77,5 +81,19 @@ Pebble.addEventListener("appmessage", function(e) {
      emailReq.setRequestHeader('Content-Type', 'application/json; charset=utf-8');   
      emailReq.send();
       
-    }
+  }
+  if(e.payload.typeKey !== undefined){
+    console.log("JAVASCRIPT HERE: RECEIVED STATE CHANGE");
+    console.log('JAVACRIPT: Timekey0 = '+e.payload.timeKey0);
+    console.log('JAVACRIPT: Timekey1 = '+e.payload.timeKey1);
+    console.log('JAVACRIPT: Type = '+e.payload.typeKey);
+    var timestamp = (e.payload.timeKey0)*100000000 + e.payload.timeKey1;
+    var type = e.payload.typeKey;
+    console.log('Timestamp = '+timestamp);
+    console.log('type = '+type);
+    sendData = {"user":username,"type":type,"timestamp1":timestamp,"timestamp2":timestamp};
+    activityReq.open('POST','http://83.212.115.163:8080/simple');
+    activityReq.setRequestHeader('Content-Type','application/json; charset=utf-8');
+    activityReq.send(JSON.stringify(sendData));
+  }
 });

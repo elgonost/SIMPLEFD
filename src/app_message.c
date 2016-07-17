@@ -3,12 +3,10 @@
 #define NUM_SAMPLES 25
 
 static Window *s_window;	
-
 static int s_battery_level;
 static TextLayer *s_battery_layer;
 static TextLayer *s_time_layer;
 static TextLayer *fall_layer;
-
 AppTimer *appTimer;
 DictionaryIterator *iter;
 int simpleSum[NUM_SAMPLES];
@@ -16,21 +14,25 @@ int meanSimpleSum = 0;
 int maxSimpleSum = -1;
 int minSimpleSum = 100000000;
 int maxMinDifference;
-int state[2];
-
+int state[2]; // state[0]:Asleep | state[1]:Awake
+int previousState = 0; // 0 for asleep | 1 for awake
+int currentState = 0;
 int counter = 0;
 bool highPeak = false;
 bool possibleFall = false;
-
 int dummy = 10;
-
+int timestampFirstHalf;
+int timestampSecondHalf;
 
 // Keys for AppMessage Dictionary
 // These should correspond to the values you defined in appinfo.json/Settings
 enum {
 	STATUS_KEY = 0,	
 	MESSAGE_KEY = 1,
-  FALL_KEY = 2
+  FALL_KEY = 2,
+  TIME_KEY0 = 3,
+  TIME_KEY1 = 4,
+  TYPE_KEY = 5
 };
 
 // Write message to buffer & send
@@ -49,6 +51,16 @@ void sendEmail(){
   dict_write_int(iter,FALL_KEY,&dummy,sizeof(int),true);
   dict_write_end(iter);
   app_message_outbox_send();
+}
+
+void sendStateChange(int firstHalf,int secondHalf,int currentState){
+  app_message_outbox_begin(&iter);
+  dict_write_int(iter,TIME_KEY0,&firstHalf,sizeof(int),true);
+  dict_write_int(iter,TIME_KEY1,&secondHalf,sizeof(int),true);
+  dict_write_int(iter,TYPE_KEY,&currentState,sizeof(int),true);
+  dict_write_end(iter);
+  app_message_outbox_send();
+  APP_LOG(APP_LOG_LEVEL_DEBUG,"message from sendStateChange function");
 }
 
 static void update_time() {
@@ -109,6 +121,11 @@ void appTimerCallback(void *data){
 
 static void data_handler(AccelData *data, uint32_t num_samples) {
   
+  if (counter==0){
+    timestampFirstHalf = data[0].timestamp / 100000000;
+    timestampSecondHalf = data[0].timestamp % 100000000;
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "initialTimestamp = %d %d",timestampFirstHalf,timestampSecondHalf);
+  }
   meanSimpleSum = 0;
   maxSimpleSum = -1;
   minSimpleSum = 100000000;
@@ -180,9 +197,21 @@ static void data_handler(AccelData *data, uint32_t num_samples) {
     APP_LOG(APP_LOG_LEVEL_DEBUG, "awake: %d times",state[1]);    
     if(state[0]>state[1]){
       APP_LOG(APP_LOG_LEVEL_DEBUG, "User is asleep/resting");
+      APP_LOG(APP_LOG_LEVEL_DEBUG, "initialTimestamp = %d%d",timestampFirstHalf,timestampSecondHalf);
+      if(previousState==1){
+        APP_LOG(APP_LOG_LEVEL_DEBUG, "USING BLUETOOTH");
+        sendStateChange(timestampFirstHalf,timestampSecondHalf,0);
+      }
+      previousState=0;
     }
     else{
       APP_LOG(APP_LOG_LEVEL_DEBUG, "User is awake");
+      APP_LOG(APP_LOG_LEVEL_DEBUG, "initialTimestamp = %d %d",timestampFirstHalf,timestampSecondHalf);
+      if(previousState==0){
+        APP_LOG(APP_LOG_LEVEL_DEBUG, "USING BLUETOOTH");
+        sendStateChange(timestampFirstHalf,timestampSecondHalf,1);
+      }
+      previousState=1;
     }
   }
   
