@@ -3,6 +3,10 @@ var activityReq = new XMLHttpRequest();
 var sendData = {};
 var username = localStorage.getItem("username");
 var email = localStorage.getItem("email");
+var threshold = localStorage.getItem("threshold");
+var sensitivity = localStorage.getItem("sensitivity");
+var pointThreshold = localStorage.getItem("pointThreshold");
+var step = localStorage.getItem("step");
 var lat = 0.0;
 var long = 0.0;
 var location = "";
@@ -31,19 +35,46 @@ Pebble.addEventListener('showConfiguration', function() {
 Pebble.addEventListener('webviewclosed', function(e) {
   // Decode the user's preferences
   var configData = JSON.parse(decodeURIComponent(e.response));
-  username = configData.userName;
-  localStorage.setItem("username",username);
-  console.log("username set: "+username);
   
-  email = configData.email;
-  localStorage.setItem("email",email);
-  console.log("email set: "+email);
+  console.log("RECEIVED THE FOLLOWING DATA FROM CONFIG");
+  if(configData.userName){
+     username = configData.userName;
+     localStorage.setItem("username",username);
+     console.log("username set: "+username);
+  }
+  
+  if(configData.email){
+    email = configData.email;
+    localStorage.setItem("email",email);
+    console.log("email set: "+email);
+  }
+  
+  threshold = configData.threshold;
+  localStorage.setItem("threshold",threshold);
+  console.log("threshold set: "+threshold);
+  
+  sensitivity = configData.sensitivity;
+  localStorage.setItem("sensitivity",sensitivity);
+  console.log("sensitivity set: "+sensitivity);
+  
+  pointThreshold = configData.pointThreshold;
+  localStorage.setItem("pointThreshold",pointThreshold);
+  console.log("pointThreshold set: "+pointThreshold);
+  
+  step = configData.step;
+  localStorage.setItem("step",step);
+  console.log("step set: "+step);
+  
+  //send options to C side
+  Pebble.sendAppMessage({"thresholdKey":threshold,"sensitivityKey":sensitivity,"pointThresholdKey":pointThreshold,"stepKey":step}, messageSuccessHandler, messageFailureHandler);
 });
 
 // Function to send a message to the Pebble using AppMessage API
 // We are currently only sending a message using the "status" appKey defined in appinfo.json/Settings
 function sendMessage() {
 	Pebble.sendAppMessage({"status": 1}, messageSuccessHandler, messageFailureHandler);
+  console.log('sending: '+threshold+' and '+ sensitivity);
+  Pebble.sendAppMessage({"thresholdKey":threshold,"sensitivityKey":sensitivity,"pointThresholdKey":pointThreshold,"stepKey":step}, messageSuccessHandler, messageFailureHandler);
 }
 
 // Called when the message send attempt succeeds

@@ -13,7 +13,11 @@
         "messageKeys": {
             "fallKey": 2,
             "message": 1,
+            "pointThresholdKey": 8,
+            "sensitivityKey": 7,
             "status": 0,
+            "stepKey": 9,
+            "thresholdKey": 6,
             "timeKey0": 3,
             "timeKey1": 4,
             "typeKey": 5

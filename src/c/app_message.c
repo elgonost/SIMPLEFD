@@ -20,9 +20,15 @@ int currentState = 0;
 int counter = 0;
 bool highPeak = false;
 bool possibleFall = false;
+bool highlyPossibleFall = false;
 int dummy = 10;
 int timestampFirstHalf;
 int timestampSecondHalf;
+int fallThreshold = 5000;
+int maxMinThreshold = 450;
+int pointThreshold = 1200;
+int pointStep = 20;
+
 
 // Keys for AppMessage Dictionary
 // These should correspond to the values you defined in appinfo.json/Settings
@@ -32,7 +38,11 @@ enum {
   FALL_KEY = 2,
   TIME_KEY0 = 3,
   TIME_KEY1 = 4,
-  TYPE_KEY = 5
+  TYPE_KEY = 5,
+  THRESHOLD_KEY = 6,
+  SENSITIVITY_KEY = 7,
+  POINT_THRESHOLD_KEY = 8,
+  STEP_KEY = 9
 };
 
 // Write message to buffer & send
@@ -132,59 +142,71 @@ static void data_handler(AccelData *data, uint32_t num_samples) {
   
   for(int i=0;i<NUM_SAMPLES;i++){
     //APP_LOG(APP_LOG_LEVEL_DEBUG, "x = %d, y = %d, z = %d", abs(data[i].x),data[i].x,data[i].z); 
-    simpleSum[i]=abs(data[i].x)+abs(data[i].x)+abs(data[i].z);
-    //APP_LOG(APP_LOG_LEVEL_DEBUG, "simpleSum[%d] = %d", i, simpleSum[i]); 
+    simpleSum[i]=abs(data[i].x)+abs(data[i].y)+abs(data[i].z);
+    //APP_LOG(APP_LOG_LEVEL_DEBUG, "simpleSum[%d] = %d", i, simpleSum[i]);
+    
     meanSimpleSum += simpleSum[i];
     if (simpleSum[i]>=maxSimpleSum)
       maxSimpleSum = simpleSum[i];
     if (simpleSum[i]<minSimpleSum)
       minSimpleSum = simpleSum[i];
   }
-  meanSimpleSum = meanSimpleSum / NUM_SAMPLES;
+  //meanSimpleSum = meanSimpleSum / NUM_SAMPLES;
   maxMinDifference = maxSimpleSum - minSimpleSum;
   
   //SIMPLE ACTIVITY TRACKING
   if(maxMinDifference<=328){
-    //APP_LOG(APP_LOG_LEVEL_DEBUG, "ASLEEP/RESTING");
-    if(  ((state[0]+1)<1200) && ((state[1]-1)>0)  ){
+    //User Immobile
+    if(  ((state[0]+1)<pointThreshold) && ((state[1]-1)>0)  ){
       state[0]++;
       state[1]--;
     }
   }
   else{
-    //APP_LOG(APP_LOG_LEVEL_DEBUG, "AWAKE");
-    if (  ((state[1]+20)<1200) && ((state[0]-20)>0)  )  {
-      state[1]=state[1]+20;
-      state[0]=state[0]-20;
+    //User mobile
+    if (  ((state[1]+20)<pointThreshold) && ((state[0]-pointStep)>0)  )  {
+      state[1]=state[1]+pointStep;
+      state[0]=state[0]-pointStep;
     }
       
   }   
   //APP_LOG(APP_LOG_LEVEL_DEBUG, "mean = %d | max = %d | min = %d || difference = %d ------======------======-------",meanSimpleSum,maxSimpleSum,minSimpleSum,maxMinDifference); 
     
   //SIMPLE FALL DETECTION
-  //stage 3
-  if(possibleFall && (maxMinDifference<=328)){
+  
+  //stage 4
+  if(highlyPossibleFall && (maxMinDifference<=maxMinThreshold)){
     APP_LOG(APP_LOG_LEVEL_DEBUG, "FALL DETECTED ");
     vibes_short_pulse();
     text_layer_set_text(fall_layer, "Are you alright?");
-    appTimer = app_timer_register(30000,appTimerCallback,NULL); 
+    appTimer = app_timer_register(30000,appTimerCallback,NULL);
+  }
+  highlyPossibleFall = false;
+  
+  //stage 3
+  if(possibleFall && (maxMinDifference<=2*maxMinThreshold)){
+    highlyPossibleFall = true;
   }
   possibleFall = false;
+  
   //stage 2
-  if(highPeak && (maxSimpleSum<6000)){
+  /*if(highPeak && (maxSimpleSum<fallThreshold)){
     possibleFall = true;  
   }
-  else{
-    possibleFall = false;
+  highPeak = false;*/
+  if(highPeak && (maxMinDifference<fallThreshold)){
+    possibleFall = true;  
   }
   highPeak = false;
+  
   //stage 1
-  if(maxSimpleSum>=6000){
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "High peak noticed ");
+  /*if(maxSimpleSum>=fallThreshold){
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "High peak noticed %d",maxSimpleSum);
     highPeak = true;
-  }
-  else{
-    highPeak = false;
+  }*/
+  if(maxMinDifference>=fallThreshold){
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "High peak noticed %d",maxSimpleSum);
+    highPeak = true;
   }
   
   //APP_LOG(APP_LOG_LEVEL_DEBUG, "counter is %d",counter);
@@ -229,6 +251,30 @@ static void in_received_handler(DictionaryIterator *received, void *context) {
 	tuple = dict_find(received, MESSAGE_KEY);
 	if(tuple) {
 		APP_LOG(APP_LOG_LEVEL_DEBUG, "Received Message: %s", tuple->value->cstring);
+	}
+  
+  tuple = dict_find(received, THRESHOLD_KEY);
+  if(tuple) {
+    fallThreshold = atoi(tuple->value->cstring);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Received Message: %d", fallThreshold);
+	}
+  
+  tuple = dict_find(received, SENSITIVITY_KEY);
+  if(tuple) {
+    maxMinThreshold = atoi(tuple->value->cstring);
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Received Message: %d", maxMinThreshold);
+	}
+  
+  tuple = dict_find(received, POINT_THRESHOLD_KEY);
+  if(tuple) {
+    pointThreshold = atoi(tuple->value->cstring);
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Received Message: %d", pointThreshold);
+	}
+  
+  tuple = dict_find(received, STEP_KEY);
+  if(tuple) {
+    pointStep = atoi(tuple->value->cstring);
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Received Message: %d", pointStep);
 	}
   
   send_message();
@@ -313,7 +359,7 @@ static void init(void) {
 	app_message_open(inbox_size, outbox_size);
   
   //initialization: 0->asleep | 1->awake 
-  state[0]=1200;
+  state[0]=pointThreshold;
   state[1]=0;
 
   // Register with TickTimerService
